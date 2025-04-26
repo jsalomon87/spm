@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Singapore Math Assessment</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            --neutral-color: #f5f5f5;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .question-container {
+            margin: 20px 0;
+            min-height: 200px;
+        }
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .option-button {
+            padding: 15px 20px;
+            font-size: 1.1em;
+            border: 2px solid var(--neutral-color);
+            border-radius: 8px;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .option-button:hover {
+            background-color: var(--neutral-color);
+        }
+        .option-button.correct {
+            background-color: var(--success-color);
+            color: white;
+        }
+        .option-button.incorrect {
+            background-color: var(--error-color);
+            color: white;
+        }
+        .skip-button {
+            padding: 10px 20px;
+            background-color: #e0e0e0;
+            color: #666;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: var(--neutral-color);
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        .visual-aid {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 2em;
+        }
+        .feedback {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        @keyframes correct-answer {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes incorrect-answer {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+            100% { transform: translateX(0); }
+        }
+        .domain-indicator {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        .number-input {
+            padding: 10px;
+            font-size: 1.2em;
+            width: 100px;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .review-container {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: var(--neutral-color);
+            border-radius: 8px;
+        }
+        .results-container {
+            text-align: center;
+        }
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            .option-button, .skip-button {
+                width: 100%;
+                font-size: 1em;
+            }
+        }
+    </style>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container" id="mainContainer">
+        <h1 style="text-align: center;">Singapore Math Assessment</h1>
+        <div id="assessmentContainer"></div>
+    </div>
+    <script>
+        // --- Question Bank ---
+        const questionBank = {
+            placeValue: [
+                { id: 'pv1', difficulty: 'easy', type: 'multiple', question: "What is the tens digit in 45?", options: ['4', '5', '45', '54'], answer: '4' },
+                { id: 'pv2', difficulty: 'medium', type: 'input', question: "Write 3 tens and 4 ones as a number", answer: '34' },
+                { id: 'pv3', difficulty: 'medium', type: 'multiple', question: "Which number has 6 tens?", options: ['16', '60', '26', '66'], answer: '60' },
+                { id: 'pv4', difficulty: 'hard', type: 'input', question: "In the number 87, what is the value of the 8?", answer: '80' },
+                { id: 'pv5', difficulty: 'hard', type: 'multiple', question: "Which number has 7 tens and 3 ones?", options: ['37', '73', '70', '17'], answer: '73' }
+            ],
+            addSubtract20: [
+                { id: 'as1', difficulty: 'easy', type: 'multiple', question: "What is 8 + 5?", options: ['12', '13', '14', '15'], answer: '13', visual: '🍎🍎🍎🍎🍎🍎🍎🍎 + 🍎🍎🍎🍎🍎' },
+                { id: 'as2', difficulty: 'easy', type: 'multiple', question: "What is 12 - 5?", options: ['5', '6', '7', '8'], answer: '7', visual: '🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵 - 🔵🔵🔵🔵🔵' },
+                { id: 'as3', difficulty: 'medium', type: 'input', question: "What number makes 7 + __ = 13?", answer: '6' },
+                { id: 'as4', difficulty: 'medium', type: 'multiple', question: "15 - 8 = ?", options: ['5', '6', '7', '8'], answer: '7' },
+                { id: 'as5', difficulty: 'hard', type: 'input', question: "If you add 9 to a number and get 17, what was the number?", answer: '8' }
+            ],
+            addSubtract100: [
+                { id: 'as100_1', difficulty: 'easy', type: 'multiple', question: "What is 25 + 30?", options: ['45', '55', '65', '35'], answer: '55' },
+                { id: 'as100_2', difficulty: 'medium', type: 'input', question: "What is 67 - 23?", answer: '44' },
+                { id: 'as100_3', difficulty: 'medium', type: 'multiple', question: "45 + 38 = ?", options: ['73', '83', '93', '63'], answer: '83' },
+                { id: 'as100_4', difficulty: 'hard', type: 'input', question: "What is 92 - 45?", answer: '47' },
+                { id: 'as100_5', difficulty: 'hard', type: 'multiple', question: "76 + 25 = ?", options: ['91', '101', '111', '81'], answer: '101' }
+            ],
+            numberBonds: [
+                { id: 'nb1', difficulty: 'easy', type: 'multiple', question: "If one part is 4 and the whole is 10, what's the other part?", options: ['4', '5', '6', '7'], answer: '6' },
+                { id: 'nb2', difficulty: 'medium', type: 'multiple', question: "What pairs of numbers make 8?", options: ['5+3', '4+5', '2+7', '6+3'], answer: '5+3' },
+                { id: 'nb3', difficulty: 'medium', type: 'input', question: "If one part is 7 and the whole is 15, what's the other part?", answer: '8' },
+                { id: 'nb4', difficulty: 'hard', type: 'multiple', question: "Which number bond shows parts of 12?", options: ['5+8', '7+5', '6+6', '8+3'], answer: '7+5' }
+            ],
+            ordinalNumbers: [
+                { id: 'on1', difficulty: 'easy', type: 'multiple', question: "What comes after 3rd?", options: ['2nd', '4th', '5th', '6th'], answer: '4th' },
+                { id: 'on2', difficulty: 'medium', type: 'multiple', question: "Which day is the 5th day of the week?", options: ['Wednesday', 'Thursday', 'Friday', 'Saturday'], answer: 'Friday' },
+                { id: 'on3', difficulty: 'medium', type: 'multiple', question: "In a race, Jim finished 3rd. How many people finished before him?", options: ['1', '2', '3', '4'], answer: '2' },
+                { id: 'on4', difficulty: 'hard', type: 'multiple', question: "If you're 6th in line, and 2 people leave in front of you, what position are you in now?", options: ['2nd', '3rd', '4th', '5th'], answer: '4th' }
+            ],
+            shapes: [
+                { id: 'sh1', difficulty: 'easy', type: 'multiple', question: "How many sides does a triangle have?", options: ['2', '3', '4', '5'], answer: '3' },
+                { id: 'sh2', difficulty: 'medium', type: 'multiple', question: "Which shape has 4 equal sides?", options: ['Rectangle', 'Square', 'Triangle', 'Circle'], answer: 'Square' },
+                { id: 'sh3', difficulty: 'medium', type: 'multiple', question: "How many corners does a rectangle have?", options: ['2', '3', '4', '5'], answer: '4' },
+                { id: 'sh4', difficulty: 'hard', type: 'multiple', question: "Which shape has no corners?", options: ['Square', 'Triangle', 'Circle', 'Rectangle'], answer: 'Circle' }
+            ],
+            wordProblems: [
+                { id: 'wp1', difficulty: 'easy', type: 'multiple', question: "Tom has 5 candies. Sara gives him 3 more. How many candies does Tom have now?", options: ['7', '8', '9', '10'], answer: '8' },
+                { id: 'wp2', difficulty: 'medium', type: 'input', question: "There are 12 birds in a tree. 5 fly away. How many birds are left?", answer: '7' },
+                { id: 'wp3', difficulty: 'medium', type: 'multiple', question: "Jane has 15 stickers. She gives 4 to her friend and gets 6 new ones. How many does she have now?", options: ['15', '16', '17', '18'], answer: '17' },
+                { id: 'wp4', difficulty: 'hard', type: 'input', question: "A class has 25 students. If 8 are boys, how many are girls?", answer: '17' }
+            ]
+        };
+
+        // --- State Management ---
+        let currentState = {};
+
+        // --- Helper Functions ---
+        function findQuestionById(id, domain) {
+            return questionBank[domain].find(q => q.id === id);
+        }
+        function getNextDifficulty(current) {
+            const difficulties = ['easy', 'medium', 'hard'];
+            const currentIndex = difficulties.indexOf(current);
+            return currentIndex < difficulties.length - 1 ? difficulties[currentIndex + 1] : current;
+        }
+        function getPreviousDifficulty(current) {
+            const difficulties = ['easy', 'medium', 'hard'];
+            const currentIndex = difficulties.indexOf(current);
+            return currentIndex > 0 ? difficulties[currentIndex - 1] : current;
+        }
+        function playCorrectSound() {
+            const audio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYQAAAB//wA=');
+            audio.play();
+        }
+        function playIncorrectSound() {
+            const audio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYQAAAD//wAA');
+            audio.play();
+        }
+        function showMessage(message) {
+            const container = document.getElementById('assessmentContainer');
+            container.innerHTML += `
+                <div class="message" style="text-align: center; margin: 20px; padding: 10px; background-color: #f0f0f0;">
+                    ${message}
+                </div>
+            `;
+        }
+
+        // --- Assessment Logic ---
+        function initializeAssessment() {
+            currentState = {
+                domains: Object.keys(questionBank),
+                currentDomainIndex: 0,
+                currentQuestionIndex: 0,
+                difficulty: 'easy',
+                correctStreak: 0,
+                incorrectStreak: 0,
+                answers: [],
+                skipped: [],
+                domainScores: {},
+                reviewQuestions: [],
+                reviewMode: false
+            };
+            displayNextQuestion();
+        }
+
+        function displayNextQuestion() {
+            if (currentState.currentDomainIndex >= currentState.domains.length) {
+                showResults();
+                return;
+            }
+            const currentDomain = currentState.domains[currentState.currentDomainIndex];
+            const questions = questionBank[currentDomain].filter(q => q.difficulty === currentState.difficulty);
+            if (questions.length === 0 || currentState.currentQuestionIndex >= questions.length) {
+                currentState.currentDomainIndex++;
+                currentState.currentQuestionIndex = 0;
+                currentState.difficulty = 'easy';
+                currentState.correctStreak = 0;
+                currentState.incorrectStreak = 0;
+                displayNextQuestion();
+                return;
+            }
+            const question = questions[currentState.currentQuestionIndex];
+            displayQuestion(question, currentDomain);
+        }
+
+        function displayQuestion(question, domain) {
+            const container = document.getElementById('assessmentContainer');
+            const domainDisplay = domain.replace(/([A-Z])/g, ' $1').toLowerCase();
+            let html = `
+                <div class="domain-indicator">Topic: ${domainDisplay}</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${(currentState.currentDomainIndex / currentState.domains.length) * 100}%"></div>
+                </div>
+                <div class="question-container">
+                    <h2>${question.question}</h2>
+                    ${question.visual ? `<div class="visual-aid">${question.visual}</div>` : ''}
+            `;
+            if (question.type === 'multiple') {
+                html += `<div class="options-container">`;
+                question.options.forEach(option => {
+                    html += `<button class="option-button" onclick="checkAnswer('${option}', '${question.id}')">${option}</button>`;
+                });
+                html += `</div>`;
+            } else if (question.type === 'input') {
+                html += `
+                    <div class="options-container">
+                        <input type="number" class="number-input" id="numberInput">
+                        <button class="option-button" onclick="checkInputAnswer('${question.id}')">Submit</button>
+                    </div>
+                `;
+            }
+            html += `<button class="skip-button" onclick="skipQuestion('${question.id}')">Skip</button>`;
+            container.innerHTML = html;
+        }
+
+        function checkAnswer(selectedAnswer, questionId) {
+            const currentDomain = currentState.domains[currentState.currentDomainIndex];
+            const question = findQuestionById(questionId, currentDomain);
+            const correct = selectedAnswer === question.answer;
+            handleAnswerResult(correct, question, selectedAnswer);
+        }
+
+        function checkInputAnswer(questionId) {
+            const input = document.getElementById('numberInput');
+            const currentDomain = currentState.domains[currentState.currentDomainIndex];
+            const question = findQuestionById(questionId, currentDomain);
+            const correct = input.value === question.answer;
+            handleAnswerResult(correct, question, input.value);
+        }
+
+        function handleAnswerResult(correct, question, givenAnswer) {
+            const currentDomain = currentState.domains[currentState.currentDomainIndex];
+            if (correct) {
+                currentState.correctStreak++;
+                currentState.incorrectStreak = 0;
+                playCorrectSound();
+            } else {
+                currentState.incorrectStreak++;
+                currentState.correctStreak = 0;
+                playIncorrectSound();
+            }
+            currentState.answers.push({
+                domain: currentDomain,
+                questionId: question.id,
+                correct: correct,
+                givenAnswer: givenAnswer,
+                expectedAnswer: question.answer,
+                difficulty: currentState.difficulty
+            });
+            if (currentState.correctStreak >= 2) {
+                currentState.difficulty = getNextDifficulty(currentState.difficulty);
+                currentState.correctStreak = 0;
+            } else if (currentState.incorrectStreak >= 2) {
+                currentState.difficulty = getPreviousDifficulty(currentState.difficulty);
+                currentState.incorrectStreak = 0;
+            }
+            showAnswerFeedback(correct, question, givenAnswer);
+            setTimeout(() => {
+                currentState.currentQuestionIndex++;
+                displayNextQuestion();
+            }, 1200);
+        }
+
+        function skipQuestion(questionId) {
+            const currentDomain = currentState.domains[currentState.currentDomainIndex];
+            currentState.skipped.push({
+                domain: currentDomain,
+                questionId: questionId
+            });
+            currentState.currentQuestionIndex++;
+            displayNextQuestion();
+        }
+
+        function showAnswerFeedback(correct, question, givenAnswer) {
+            const options = document.querySelectorAll('.option-button');
+            options.forEach(option => {
+                option.disabled = true;
+                if (option.textContent === question.answer) {
+                    option.classList.add('correct');
+                } else if (option.textContent === givenAnswer && !correct) {
+                    option.classList.add('incorrect');
+                }
+            });
+        }
+
+        // --- Results and Reporting ---
+        function calculateDomainScores() {
+            const scores = {};
+            currentState.domains.forEach(domain => {
+                const domainAnswers = currentState.answers.filter(a => a.domain === domain);
+                if (domainAnswers.length > 0) {
+                    scores[domain] = {
+                        correct: domainAnswers.filter(a => a.correct).length,
+                        total: domainAnswers.length,
+                        percentage: Math.round((domainAnswers.filter(a => a.correct).length / domainAnswers.length) * 100)
+                    };
+                }
+            });
+            return scores;
+        }
+
+        function getDimensionsMathLevel(scores) {
+            let totalScore = 0;
+            let totalQuestions = 0;
+            Object.values(scores).forEach(score => {
+                totalScore += score.correct;
+                totalQuestions += score.total;
+            });
+            const overallPercentage = (totalScore / totalQuestions) * 100;
+            const domainMastery = {};
+            Object.entries(scores).forEach(([domain, score]) => {
+                if (score.percentage >= 85) domainMastery[domain] = 'Advanced';
+                else if (score.percentage >= 70) domainMastery[domain] = 'Proficient';
+                else if (score.percentage >= 50) domainMastery[domain] = 'Developing';
+                else domainMastery[domain] = 'Beginning';
+            });
+            let recommendation;
+            if (overallPercentage >= 85) {
+                recommendation = {
+                    level: "Ready for Grade 2A",
+                    details: "Excellent mastery of Grade 1 concepts"
+                };
+            } else if (overallPercentage >= 70) {
+                recommendation = {
+                    level: "Ready for Grade 1B",
+                    details: "Good understanding of basic concepts"
+                };
+            } else if (overallPercentage >= 50) {
+                recommendation = {
+                    level: "Continue with Grade 1A",
+                    details: "More practice needed in some areas"
+                };
+            } else {
+                recommendation = {
+                    level: "Review Prerequisites",
+                    details: "Foundational skills need strengthening"
+                };
+            }
+            return {
+                recommendation,
+                domainMastery,
+                overallPercentage: Math.round(overallPercentage)
+            };
+        }
+
+        function showResults() {
+            const scores = calculateDomainScores();
+            const assessment = getDimensionsMathLevel(scores);
+            const container = document.getElementById('assessmentContainer');
+            let html = `
+                <div class="results-container">
+                    <h2>Assessment Complete!</h2>
+                    <div class="overall-score">
+                        <h3>Overall Score: ${assessment.overallPercentage}%</h3>
+                        <h3>Recommended Level: ${assessment.recommendation.level}</h3>
+                        <p>${assessment.recommendation.details}</p>
+                    </div>
+                    <div class="domain-scores">
+                        <h3>Performance by Topic:</h3>
+                        <ul>
+            `;
+            Object.entries(scores).forEach(([domain, score]) => {
+                const domainDisplay = domain.replace(/([A-Z])/g, ' $1').toLowerCase();
+                html += `
+                    <li>
+                        <strong>${domainDisplay}:</strong> ${score.percentage}% 
+                        (${score.correct}/${score.total}) - 
+                        <em>${assessment.domainMastery[domain]}</em>
+                    </li>
+                `;
+            });
+            html += `
+                        </ul>
+                    </div>
+                    <div class="action-buttons">
+                        <button onclick="generatePDF()" class="option-button">Download Report (PDF)</button>
+                        <button onclick="startReview()" class="option-button">Review Incorrect Answers</button>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        // --- PDF Generation ---
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const scores = calculateDomainScores();
+            const assessment = getDimensionsMathLevel(scores);
+            doc.setFontSize(20);
+            doc.text('Singapore Math Assessment Report', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 30);
+            doc.setFontSize(16);
+            doc.text('Overall Results', 20, 45);
+            doc.setFontSize(12);
+            doc.text(`Overall Score: ${assessment.overallPercentage}%`, 20, 55);
+            doc.text(`Recommended Level: ${assessment.recommendation.level}`, 20, 65);
+            doc.text(`Details: ${assessment.recommendation.details}`, 20, 75);
+            doc.setFontSize(16);
+            doc.text('Performance by Topic', 20, 95);
+            doc.setFontSize(12);
+            let yPosition = 105;
+            Object.entries(scores).forEach(([domain, score]) => {
+                const domainDisplay = domain.replace(/([A-Z])/g, ' $1').toLowerCase();
+                doc.text(`${domainDisplay}: ${score.percentage}% (${score.correct}/${score.total})`, 20, yPosition);
+                doc.text(`Mastery Level: ${assessment.domainMastery[domain]}`, 30, yPosition + 7);
+                yPosition += 20;
+            });
+            doc.save('singapore-math-assessment.pdf');
+        }
+
+        // --- Review Mode ---
+        function startReview() {
+            currentState.reviewMode = true;
+            currentState.reviewQuestions = currentState.answers.filter(a => !a.correct);
+            currentState.reviewIndex = 0;
+            if (currentState.reviewQuestions.length === 0) {
+                showMessage("No incorrect answers to review!");
+                return;
+            }
+            showReviewQuestion();
+        }
+        function showReviewQuestion() {
+            if (currentState.reviewIndex >= currentState.reviewQuestions.length) {
+                showResults();
+                return;
+            }
+            const reviewItem = currentState.reviewQuestions[currentState.reviewIndex];
+            const question = findQuestionById(reviewItem.questionId, reviewItem.domain);
+            const container = document.getElementById('assessmentContainer');
+            let html = `
+                <div class="review-container">
+                    <h3>Review Question ${currentState.reviewIndex + 1} of ${currentState.reviewQuestions.length}</h3>
+                    <div class="question-container">
+                        <p>${question.question}</p>
+                        ${question.visual ? `<div class="visual-aid">${question.visual}</div>` : ''}
+                        <p class="previous-answer">Your answer: ${reviewItem.givenAnswer}</p>
+                        <p class="correct-answer">Correct answer: ${question.answer}</p>
+                    </div>
+                    <button onclick="nextReviewQuestion()" class="option-button">Next Question</button>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+        function nextReviewQuestion() {
+            currentState.reviewIndex++;
+            showReviewQuestion();
+        }
+
+        // --- Start Assessment on Page Load ---
+        window.onload = function() {
+            initializeAssessment();
+        };
+    </script>
+</body>
+</html>
